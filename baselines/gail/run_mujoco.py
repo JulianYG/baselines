@@ -71,7 +71,15 @@ def get_task_name(args):
 def main(args):
     U.make_session(num_cpu=1).__enter__()
     set_global_seeds(args.seed)
-    env = gym.make(args.env_id)
+
+    import MujocoManip as MM
+
+    env = MM.make('SawyerLiftEnvWrapper', ignore_done=True, 
+                           use_eef_ctrl=False, 
+                           gripper_visualization=True, 
+                           use_camera_obs=False, 
+                           has_renderer=True if args.task=='evaluate' else False)
+    # env = gym.make(args.env_id)
 
     def policy_fn(name, ob_space, ac_space, reuse=False):
         return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
@@ -105,10 +113,10 @@ def main(args):
               task_name
               )
     elif args.task == 'evaluate':
-        runner(env,
+        visualizer(env,
                policy_fn,
                args.load_model_path,
-               timesteps_per_batch=1024,
+               timesteps_per_batch=2500,
                number_trajs=10,
                stochastic_policy=args.stochastic_policy,
                save=args.save_sample
@@ -153,6 +161,43 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
     else:
         raise NotImplementedError
 
+def visualizer(env, policy_func, load_model_path, timesteps_per_batch, number_trajs,
+           stochastic_policy, save=False, reuse=False):
+  
+    # Setup network
+    # ----------------------------------------
+    ob_space = env.observation_space
+    ac_space = env.action_space
+    pi = policy_func("pi", ob_space, ac_space, reuse=reuse)
+    U.initialize()
+    # Prepare for rollouts
+    # ----------------------------------------
+    U.load_state(load_model_path)
+
+    # obs_list = []
+    # acs_list = []
+    # len_list = []
+    # ret_list = []
+    print('visualzer called')
+    for _ in tqdm(range(number_trajs)):
+      ob = env.reset()
+      total_rew = 0
+      for _ in range(timesteps_per_batch):
+
+        ac, vpred = pi.act(False, ob)
+        ob, rew, new, _ = env.step(ac)
+        env.render()
+        total_rew += rew
+        if new: 
+          break
+      print('total reward: ', total_rew)
+
+        # traj = traj_1_generator(pi, env, timesteps_per_batch, stochastic=stochastic_policy)
+        # obs, acs, ep_len, ep_ret = traj['ob'], traj['ac'], traj['ep_len'], traj['ep_ret']
+        # obs_list.append(obs)
+        # acs_list.append(acs)
+        # len_list.append(ep_len)
+        # ret_list.append(ep_ret)
 
 def runner(env, policy_func, load_model_path, timesteps_per_batch, number_trajs,
            stochastic_policy, save=False, reuse=False):

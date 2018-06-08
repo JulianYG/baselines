@@ -59,9 +59,9 @@ class Mujoco_Dset(object):
                 return y
         self.obs = np.array(flatten(obs))
         self.acs = np.array(flatten(acs))
-        self.rets = traj_data['ep_rets'][:traj_limitation]
-        self.avg_ret = sum(self.rets)/len(self.rets)
-        self.std_ret = np.std(np.array(self.rets))
+        # self.rets = traj_data['ep_rets'][:traj_limitation]
+        # self.avg_ret = sum(self.rets)/len(self.rets)
+        # self.std_ret = np.std(np.array(self.rets))
         if len(self.acs) > 2:
             self.acs = np.squeeze(self.acs)
         assert len(self.obs) == len(self.acs)
@@ -81,8 +81,8 @@ class Mujoco_Dset(object):
     def log_info(self):
         logger.log("Total trajectorues: %d" % self.num_traj)
         logger.log("Total transitions: %d" % self.num_transition)
-        logger.log("Average returns: %f" % self.avg_ret)
-        logger.log("Std for returns: %f" % self.std_ret)
+        # logger.log("Average returns: %f" % self.avg_ret)
+        # logger.log("Std for returns: %f" % self.std_ret)
 
     def get_next_batch(self, batch_size, split=None):
         if split is None:

@@ -70,10 +70,9 @@ def traj_segment_generator(pi, env, reward_giver, horizon, stochastic):
         prevacs[i] = prevac
 
         rew = reward_giver.get_reward(ob, ac)
-        ob, true_rew, new, _ = env.step(ac)
+        ob, true_rew, new, info = env.step(ac)
         rews[i] = rew
         true_rews[i] = true_rew
-
         cur_ep_ret += rew
         cur_ep_true_ret += true_rew
         cur_ep_len += 1
@@ -233,7 +232,10 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
         if rank == 0 and iters_so_far % save_per_iter == 0 and ckpt_dir is not None:
             fname = os.path.join(ckpt_dir, task_name)
             os.makedirs(os.path.dirname(fname), exist_ok=True)
-            saver = tf.train.Saver()
+            
+            from tensorflow.core.protobuf import saver_pb2
+            saver = tf.train.Saver(write_version = saver_pb2.SaverDef.V1)
+
             saver.save(tf.get_default_session(), fname)
 
         logger.log("********** Iteration %i ************" % iters_so_far)
@@ -246,6 +248,7 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
             with timed("sampling"):
                 seg = seg_gen.__next__()
             add_vtarg_and_adv(seg, gamma, lam)
+
             # ob, ac, atarg, ret, td1ret = map(np.concatenate, (obs, acs, atargs, rets, td1rets))
             ob, ac, atarg, tdlamret = seg["ob"], seg["ac"], seg["adv"], seg["tdlamret"]
             vpredbefore = seg["vpred"]  # predicted value function before udpate
