@@ -172,6 +172,25 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
     compute_fvp = U.function([flat_tangent, ob, ac, atarg], fvp)
     compute_vflossandgrad = U.function([ob, ret], U.flatgrad(vferr, vf_var_list))
 
+
+    if rank == 0:
+        generator_loss = tf.placeholder(tf.float32, [], name='generator_loss')
+        expert_loss = tf.placeholder(tf.float32, [], name='expert_loss')
+        entropy = tf.placeholder(tf.float32, [], name='entropy')
+        entropy_loss = tf.placeholder(tf.float32, [], name='entropy_loss')
+        generator_acc = tf.placeholder(tf.float32, [], name='genrator_acc')
+        expert_acc = tf.placeholder(tf.float32, [], name='expert_acc')
+        eplenmean = tf.placeholder(tf.int32, [], name='eplenmean')
+        eprewmean = tf.placeholder(tf.float32, [], name='eprewmean')
+        eptruerewmean = tf.placeholder(tf.float32, [], name='eptruerewmean')
+        _meankl = tf.placeholder(tf.float32, [], name='meankl')
+        _optimgain = tf.placeholder(tf.float32, [], name='optimgain')
+        _surrgain = tf.placeholder(tf.float32, [], name='surrgain')
+        _ops_to_merge = [generator_loss, expert_loss, entropy, entropy_loss, generator_acc, expert_acc, eplenmean, eprewmean, eptruerewmean, _meankl, _optimgain, _surrgain]
+        ops_to_merge = [ tf.summary.scalar(op.name, op) for op in _ops_to_merge]
+
+        merged = tf.summary.merge(ops_to_merge)
+
     @contextmanager
     def timed(msg):
         if rank == 0:
@@ -219,6 +238,10 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
     if pretrained_weight is not None:
         U.load_state(pretrained_weight, var_list=pi.get_variables())
 
+    if rank == 0:
+        filenames = [f for f in os.listdir(log_dir) if 'logs' in f]
+        writer = tf.summary.FileWriter('{}/logs-{}'.format(log_dir, len(filenames)))
+
     while True:
         if callback: callback(locals(), globals())
         if max_timesteps and timesteps_so_far >= max_timesteps:
@@ -232,11 +255,11 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
         if rank == 0 and iters_so_far % save_per_iter == 0 and ckpt_dir is not None:
             fname = os.path.join(ckpt_dir, task_name)
             os.makedirs(os.path.dirname(fname), exist_ok=True)
-            
+
             from tensorflow.core.protobuf import saver_pb2
             saver = tf.train.Saver(write_version = saver_pb2.SaverDef.V1)
-
             saver.save(tf.get_default_session(), fname)
+            # U.save_state(fname)
 
         logger.log("********** Iteration %i ************" % iters_so_far)
 
@@ -348,6 +371,25 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
         logger.record_tabular("EpisodesSoFar", episodes_so_far)
         logger.record_tabular("TimestepsSoFar", timesteps_so_far)
         logger.record_tabular("TimeElapsed", time.time() - tstart)
+
+        if rank == 0 and iters_so_far % 10 == 0:
+            disc_losses = np.mean(d_losses, axis=0)
+            res = tf.get_default_session().run(merged, feed_dict={
+                generator_loss: disc_losses[0],
+                expert_loss: disc_losses[1],
+                entropy: disc_losses[2],
+                entropy_loss: disc_losses[3],
+                generator_acc: disc_losses[4],
+                expert_acc: disc_losses[5],
+                eplenmean: np.mean(lenbuffer),
+                eprewmean: np.mean(rewbuffer),
+                eptruerewmean: np.mean(true_rewbuffer),
+                _meankl: meanlosses[1],
+                _optimgain: meanlosses[0],
+                _surrgain: meanlosses[3]
+            })
+            writer.add_summary(res, iters_so_far)
+            writer.flush()
 
         if rank == 0:
             logger.dump_tabular()

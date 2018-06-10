@@ -4,6 +4,7 @@ Disclaimer: this code is highly based on trpo_mpi at @openai/baselines and @open
 
 import argparse
 import os.path as osp
+import os
 import logging
 from mpi4py import MPI
 from tqdm import tqdm
@@ -22,8 +23,8 @@ from baselines.gail.adversary import TransitionClassifier
 
 def argsparser():
     parser = argparse.ArgumentParser("Tensorflow Implementation of GAIL")
-    parser.add_argument('--env_id', help='environment ID', default='Hopper-v2')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
+    parser.add_argument('--env', help='Name of environment', default='SawyerLiftEnv')
     parser.add_argument('--expert_path', type=str, default='data/deterministic.trpo.Hopper.0.00.npz')
     parser.add_argument('--checkpoint_dir', help='the directory to save model', default='checkpoint')
     parser.add_argument('--log_dir', help='the directory to save log file', default='log')
@@ -55,31 +56,33 @@ def argsparser():
     return parser.parse_args()
 
 
-def get_task_name(args):
-    task_name = args.algo + "_gail."
-    if args.pretrained:
-        task_name += "with_pretrained."
-    if args.traj_limitation != np.inf:
-        task_name += "transition_limitation_%d." % args.traj_limitation
-    task_name += args.env_id.split("-")[0]
-    # task_name = task_name + ".g_step_" + str(args.g_step) + ".d_step_" + str(args.d_step) + \
-    #     ".policy_entcoeff_" + str(args.policy_entcoeff) + ".adversary_entcoeff_" + str(args.adversary_entcoeff)
-    # task_name += ".seed_" + str(args.seed)
+def get_task_name(env_name, user_name):
+    # task_name = args.algo + "_gail."
+    # if args.pretrained:
+    #     task_name += "with_pretrained."
+    # if args.traj_limitation != np.inf:
+    #     task_name += "transition_limitation_%d." % args.traj_limitation
+    # task_name += user_name
+    task_name = '%s.%s' % (env_name, user_name)
     return task_name
-
 
 def main(args):
     U.make_session(num_cpu=1).__enter__()
     set_global_seeds(args.seed)
 
     import MujocoManip as MM
-
-    env = MM.make('SawyerLiftEnvWrapper', ignore_done=True, 
-                           use_eef_ctrl=False, 
-                           gripper_visualization=True, 
-                           use_camera_obs=False, 
-                           has_renderer=True if args.task=='evaluate' else False)
-    # env = gym.make(args.env_id)
+    if args.task == 'train':
+      env_name, user_name = osp.basename(args.expert_path).split('.')[0].split('_')
+    else:
+      env_name, user_name = osp.basename(args.load_model_path).split('.')[:2]
+    
+    env = MM.make('%sWrapper' % env_name, 
+                  ignore_done=False, 
+                  use_eef_ctrl=False, 
+                  gripper_visualization=True, 
+                  use_camera_obs=False, 
+                  has_renderer=True if args.task=='evaluate' else False,
+                  reward_shaping=True)
 
     def policy_fn(name, ob_space, ac_space, reuse=False):
         return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
@@ -88,9 +91,10 @@ def main(args):
                         osp.join(logger.get_dir(), "monitor.json"))
     env.seed(args.seed)
     gym.logger.setLevel(logging.WARN)
-    task_name = get_task_name(args)
+    task_name = get_task_name(env_name, user_name)
     args.checkpoint_dir = osp.join(args.checkpoint_dir, task_name)
     args.log_dir = osp.join(args.log_dir, task_name)
+    os.makedirs(args.log_dir, exist_ok=True)
 
     if args.task == 'train':
         dataset = Mujoco_Dset(expert_path=args.expert_path, traj_limitation=args.traj_limitation)
