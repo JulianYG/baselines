@@ -71,6 +71,10 @@ def traj_segment_generator(pi, env, reward_giver, horizon, stochastic):
 
         rew = reward_giver.get_reward(ob, ac)
         ob, true_rew, new, info = env.step(ac)
+
+        # Use hybrid reward
+        rew = 0.444 * rew + (1 - 0.444) * true_rew
+        
         rews[i] = rew
         true_rews[i] = true_rew
         cur_ep_ret += rew
@@ -257,7 +261,7 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
             os.makedirs(os.path.dirname(fname), exist_ok=True)
 
             from tensorflow.core.protobuf import saver_pb2
-            saver = tf.train.Saver(write_version = saver_pb2.SaverDef.V1)
+            saver = tf.train.Saver(write_version=saver_pb2.SaverDef.V1)
             saver.save(tf.get_default_session(), fname)
             # U.save_state(fname)
 

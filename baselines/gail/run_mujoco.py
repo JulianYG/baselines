@@ -120,7 +120,7 @@ def main(args):
         visualizer(env,
                policy_fn,
                args.load_model_path,
-               timesteps_per_batch=2500,
+               timesteps_per_batch=env.env.horizon,
                number_trajs=10,
                stochastic_policy=args.stochastic_policy,
                save=args.save_sample
@@ -157,7 +157,7 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
                        max_timesteps=num_timesteps,
                        ckpt_dir=checkpoint_dir, log_dir=log_dir,
                        save_per_iter=save_per_iter,
-                       timesteps_per_batch=1024,
+                       timesteps_per_batch=env.env.horizon,
                        max_kl=0.01, cg_iters=10, cg_damping=0.1,
                        gamma=0.995, lam=0.97,
                        vf_iters=5, vf_stepsize=1e-3,
@@ -177,7 +177,6 @@ def visualizer(env, policy_func, load_model_path, timesteps_per_batch, number_tr
     # Prepare for rollouts
     # ----------------------------------------
     U.load_state(load_model_path)
-
     # obs_list = []
     # acs_list = []
     # len_list = []
@@ -185,6 +184,8 @@ def visualizer(env, policy_func, load_model_path, timesteps_per_batch, number_tr
     for _ in tqdm(range(number_trajs)):
       ob = env.reset()
       total_rew = 0
+      env.env.viewer.set_camera(2)
+      env.env.viewer.viewer._hide_overlay = True
       for _ in range(timesteps_per_batch):
 
         ac, vpred = pi.act(False, ob)
