@@ -20,7 +20,7 @@ from baselines.common.cg import cg
 from baselines.gail.statistics import stats
 
 
-def traj_segment_generator(pi, env, reward_giver, horizon, stochastic):
+def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochastic):
 
     # Initialize state variables
     t = 0
@@ -73,7 +73,8 @@ def traj_segment_generator(pi, env, reward_giver, horizon, stochastic):
         ob, true_rew, new, info = env.step(ac)
 
         # Use hybrid reward
-        rew = 0.444 * rew + (1 - 0.444) * true_rew
+        if mix_rew:
+            rew = lam * rew + (1. - lam) * true_rew
         
         rews[i] = rew
         true_rews[i] = true_rew
@@ -113,6 +114,7 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
           max_kl, cg_iters, cg_damping=1e-2,
           vf_stepsize=3e-4, d_stepsize=3e-4, vf_iters=3,
           max_timesteps=0, max_episodes=0, max_iters=0,
+          mix_reward=False, r_lambda=0.44,
           callback=None
           ):
 
@@ -223,7 +225,9 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
 
     # Prepare for rollouts
     # ----------------------------------------
-    seg_gen = traj_segment_generator(pi, env, reward_giver, timesteps_per_batch, stochastic=True)
+    seg_gen = traj_segment_generator(pi, env, reward_giver, timesteps_per_batch, 
+        mix_reward, r_lambda,
+        stochastic=True)
 
     episodes_so_far = 0
     timesteps_so_far = 0

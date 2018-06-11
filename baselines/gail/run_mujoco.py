@@ -26,6 +26,8 @@ def argsparser():
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--env', help='Name of environment', default='SawyerLiftEnv')
     parser.add_argument('--expert_path', type=str, default='data/deterministic.trpo.Hopper.0.00.npz')
+    parser.add_argument('--mix_reward', action='store_true', help='using true env rewards mixed with discriminator reward')
+    parser.add_argument('--rew_lambda', type=float, help='lambda coefficient to mix true rew and discriminator rew', default=0.44)
     parser.add_argument('--checkpoint_dir', help='the directory to save model', default='checkpoint')
     parser.add_argument('--log_dir', help='the directory to save log file', default='log')
     parser.add_argument('--load_model_path', help='if provided, load the model', type=str, default=None)
@@ -114,13 +116,15 @@ def main(args):
               args.log_dir,
               args.pretrained,
               args.BC_max_iter,
+              args.rew_lambda,
+              args.mix_reward,
               task_name
               )
     elif args.task == 'evaluate':
         visualizer(env,
                policy_fn,
                args.load_model_path,
-               timesteps_per_batch=env.env.horizon,
+               timesteps_per_batch=env.env.horizon * 5,
                number_trajs=10,
                stochastic_policy=args.stochastic_policy,
                save=args.save_sample
@@ -132,7 +136,8 @@ def main(args):
 
 def train(env, seed, policy_fn, reward_giver, dataset, algo,
           g_step, d_step, policy_entcoeff, num_timesteps, save_per_iter,
-          checkpoint_dir, log_dir, pretrained, BC_max_iter, task_name=None):
+          checkpoint_dir, log_dir, pretrained, BC_max_iter, rew_lambda,
+          mix_reward=False, task_name=None):
 
     pretrained_weight = None
     if pretrained and (BC_max_iter > 0):
@@ -161,6 +166,7 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
                        max_kl=0.01, cg_iters=10, cg_damping=0.1,
                        gamma=0.995, lam=0.97,
                        vf_iters=5, vf_stepsize=1e-3,
+                       mix_reward=mix_reward, r_lambda=rew_lambda,
                        task_name=task_name)
     else:
         raise NotImplementedError
