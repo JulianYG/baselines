@@ -23,11 +23,11 @@ from baselines.gail.dataset.mujoco_dset import Mujoco_Dset
 
 def argsparser():
     parser = argparse.ArgumentParser("Tensorflow Implementation of Behavior Cloning")
-    parser.add_argument('--env_id', help='environment ID', default='Hopper-v1')
+    parser.add_argument('--env_id', help='environment ID', default='SawyerLiftEnv')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
-    parser.add_argument('--expert_path', type=str, default='data/deterministic.trpo.Hopper.0.00.npz')
-    parser.add_argument('--checkpoint_dir', help='the directory to save model', default='checkpoint')
-    parser.add_argument('--log_dir', help='the directory to save log file', default='log')
+    parser.add_argument('--expert_path', type=str, default='/media/jonathan/SSH750/data/SawyerLiftEnv.npz') #this has to be absolute
+    parser.add_argument('--checkpoint_dir', help='the directory to save model', default='BC_checkpoint')
+    parser.add_argument('--log_dir', help='the directory to save log file', default='BC_log')
     #  Mujoco Dataset Configuration
     parser.add_argument('--traj_limitation', type=int, default=-1)
     # Network Configuration (Using MLP Policy)
@@ -53,6 +53,12 @@ def learn(env, policy_func, dataset, optim_batch_size=128, max_iters=1e4,
     ac = pi.pdtype.sample_placeholder([None])
     stochastic = U.get_placeholder_cached(name="stochastic")
     loss = tf.reduce_mean(tf.square(ac-pi.ac))
+    
+    tf.summary.scalar('BC_loss', loss)
+    merged = tf.summary.merge_all()
+
+    writer = tf.summary.FileWriter(log_dir)
+   
     var_list = pi.get_trainable_variables()
     adam = MpiAdam(var_list, epsilon=adam_epsilon)
     lossandgrad = U.function([ob, ac, stochastic], [loss]+[U.flatgrad(loss, var_list)])
@@ -64,6 +70,11 @@ def learn(env, policy_func, dataset, optim_batch_size=128, max_iters=1e4,
         ob_expert, ac_expert = dataset.get_next_batch(optim_batch_size, 'train')
         train_loss, g = lossandgrad(ob_expert, ac_expert, True)
         adam.update(g, optim_stepsize)
+        
+        summary = tf.get_default_session().run(merged, feed_dict={ob: ob_expert, ac: ac_expert, stochastic: True})
+        writer.add_summary(summary, iter_so_far)
+        writer.flush()
+        
         if verbose and iter_so_far % val_per_iter == 0:
             ob_expert, ac_expert = dataset.get_next_batch(-1, 'val')
             val_loss, _ = lossandgrad(ob_expert, ac_expert, True)
@@ -73,7 +84,7 @@ def learn(env, policy_func, dataset, optim_batch_size=128, max_iters=1e4,
         savedir_fname = tempfile.TemporaryDirectory().name
     else:
         savedir_fname = osp.join(ckpt_dir, task_name)
-    U.save_state(savedir_fname, var_list=pi.get_variables())
+    U.save_state(savedir_fname)
     return savedir_fname
 
 
@@ -88,8 +99,15 @@ def get_task_name(args):
 def main(args):
     U.make_session(num_cpu=1).__enter__()
     set_global_seeds(args.seed)
-    env = gym.make(args.env_id)
 
+    env = MM.make('%sWrapper' % args.env_id,
+                  ignore_done=False,
+                  use_eef_ctrl=False,
+                  gripper_visualization=True,
+                  use_camera_obs=False,
+                  has_renderer=False,
+                  reward_shaping=True)
+        
     def policy_fn(name, ob_space, ac_space, reuse=False):
         return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
                                     reuse=reuse, hid_size=args.policy_hidden_size, num_hid_layers=2)
