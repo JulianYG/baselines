@@ -39,7 +39,7 @@ def argsparser():
     #  Mujoco Dataset Configuration
     parser.add_argument('--traj_limitation', type=int, default=-1)
     # Optimization Configuration
-    parser.add_argument('--g_step', help='number of steps to train policy in each epoch', type=int, default=3)
+    parser.add_argument('--g_step', help='number of steps to train policy in each epoch', type=int, default=2)
     parser.add_argument('--d_step', help='number of steps to train discriminator in each epoch', type=int, default=1)
     # Network Configuration (Using MLP Policy)
     parser.add_argument('--policy_hidden_size', type=int, default=100)
