@@ -97,8 +97,7 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  single_object_mode=True if \
-                    user_name in ['milk', 'can', 'cereal', 'bread'] else False,
+                  single_object_mode=True if user_name == 'easy' else False
                   )
     elif env_name == 'SawyerPegsEnv':
       env = MM.make(wrapper, 
