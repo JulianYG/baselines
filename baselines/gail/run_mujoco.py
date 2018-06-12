@@ -97,8 +97,6 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  n_each_object=1,
-                  # Be wary of this
                   single_object_mode=True if \
                     user_name in ['milk', 'can', 'cereal', 'bread'] else False,
                   )
@@ -110,8 +108,7 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  n_each_object=1 if user_name =='easy' else 2,
-                  # single_object_mode=single_obj
+                  single_object_mode=True if user_name == 'easy' else False
                   )
     else:
       raise NotImplementedError
