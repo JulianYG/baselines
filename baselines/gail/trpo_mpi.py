@@ -29,7 +29,6 @@ def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochas
     rew = 0.0
     true_rew = 0.0
     ob = env.reset()
-
     cur_ep_ret = 0
     cur_ep_len = 0
     cur_ep_true_ret = 0

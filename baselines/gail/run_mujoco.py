@@ -77,14 +77,44 @@ def main(args):
       env_name, user_name = osp.basename(args.expert_path).split('.')[0].split('_')
     else:
       env_name, user_name = osp.basename(args.load_model_path).split('.')[:2]
-    
-    env = MM.make('%sWrapper' % env_name, 
+    wrapper = '%sWrapper' % env_name
+    render = True if args.task=='evaluate' else False
+
+    if env_name == 'SawyerLiftEnv':
+      env = MM.make(wrapper, 
                   ignore_done=False, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
-                  has_renderer=True if args.task=='evaluate' else False,
-                  reward_shaping=True)
+                  has_renderer=render,
+                  reward_shaping=True,
+                  )
+    elif env_name == 'SawyerBinsEnv':
+      env = MM.make(wrapper, 
+                  ignore_done=False, 
+                  use_eef_ctrl=False, 
+                  gripper_visualization=True, 
+                  use_camera_obs=False, 
+                  has_renderer=render,
+                  reward_shaping=True,
+                  n_each_object=1,
+                  # Be wary of this
+                  single_object_mode=True if \
+                    user_name in ['milk', 'can', 'cereal', 'bread'] else False,
+                  )
+    elif env_name == 'SawyerPegsEnv':
+      env = MM.make(wrapper, 
+                  ignore_done=False, 
+                  use_eef_ctrl=False, 
+                  gripper_visualization=True, 
+                  use_camera_obs=False, 
+                  has_renderer=render,
+                  reward_shaping=True,
+                  n_each_object=1 if user_name =='easy' else 2,
+                  # single_object_mode=single_obj
+                  )
+    else:
+      raise NotImplementedError
 
     def policy_fn(name, ob_space, ac_space, reuse=False):
         return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
