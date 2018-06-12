@@ -29,6 +29,7 @@ def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochas
     rew = 0.0
     true_rew = 0.0
     ob = env.reset()
+    env.env.set_robot_joint_positions([0, -1.18, 0.00, 2.18, 0.00, 0.57, 1.5708])
     cur_ep_ret = 0
     cur_ep_len = 0
     cur_ep_true_ret = 0
