@@ -22,13 +22,16 @@ class TransitionClassifier(object):
         self.scope = scope
         self.observation_shape = env.observation_space.shape
         self.actions_shape = env.action_space.shape
-        self.input_shape = tuple([o+a for o, a in zip(self.observation_shape, self.actions_shape)])
+        # self.input_shape = tuple([o+a for o, a in zip(self.observation_shape, self.actions_shape)])
+        self.input_shape = self.observation_shape
         self.num_actions = env.action_space.shape[0]
         self.hidden_size = hidden_size
         self.build_ph()
-        # Build grpah
-        generator_logits = self.build_graph(self.generator_obs_ph, self.generator_acs_ph, reuse=False)
-        expert_logits = self.build_graph(self.expert_obs_ph, self.expert_acs_ph, reuse=True)
+        # Build graph
+        generator_logits = self.build_graph(self.generator_obs_ph, reuse=False)
+        expert_logits = self.build_graph(self.expert_obs_ph, reuse=True)
+        # generator_logits = self.build_graph(self.generator_obs_ph, self.generator_acs_ph, reuse=False)
+        # expert_logits = self.build_graph(self.expert_obs_ph, self.expert_acs_ph, reuse=True)
         # Build accuracy
         generator_acc = tf.reduce_mean(tf.to_float(tf.nn.sigmoid(generator_logits) < 0.5))
         expert_acc = tf.reduce_mean(tf.to_float(tf.nn.sigmoid(expert_logits) > 0.5))
@@ -51,16 +54,18 @@ class TransitionClassifier(object):
         self.reward_op = -tf.log(1-tf.nn.sigmoid(generator_logits)+1e-8)
         self.reward_op = tf.clip_by_norm(self.reward_op, 10.0, name='clipDiscRew')
         var_list = self.get_trainable_variables()
-        self.lossandgrad = U.function([self.generator_obs_ph, self.generator_acs_ph, self.expert_obs_ph, self.expert_acs_ph],
+        # self.lossandgrad = U.function([self.generator_obs_ph, self.generator_acs_ph, self.expert_obs_ph, self.expert_acs_ph],
+        #                               self.losses + [U.flatgrad(self.total_loss, var_list)])
+        self.lossandgrad = U.function([self.generator_obs_ph, self.expert_obs_ph],
                                       self.losses + [U.flatgrad(self.total_loss, var_list)])
 
     def build_ph(self):
         self.generator_obs_ph = tf.placeholder(tf.float32, (None, ) + self.observation_shape, name="observations_ph")
-        self.generator_acs_ph = tf.placeholder(tf.float32, (None, ) + self.actions_shape, name="actions_ph")
+        # self.generator_acs_ph = tf.placeholder(tf.float32, (None, ) + self.actions_shape, name="actions_ph")
         self.expert_obs_ph = tf.placeholder(tf.float32, (None, ) + self.observation_shape, name="expert_observations_ph")
-        self.expert_acs_ph = tf.placeholder(tf.float32, (None, ) + self.actions_shape, name="expert_actions_ph")
+        # self.expert_acs_ph = tf.placeholder(tf.float32, (None, ) + self.actions_shape, name="expert_actions_ph")
 
-    def build_graph(self, obs_ph, acs_ph, reuse=False):
+    def build_graph(self, obs_ph, reuse=False):
         with tf.variable_scope(self.scope):
             if reuse:
                 tf.get_variable_scope().reuse_variables()
@@ -68,7 +73,8 @@ class TransitionClassifier(object):
             with tf.variable_scope("obfilter"):
                 self.obs_rms = RunningMeanStd(shape=self.observation_shape)
             obs = (obs_ph - self.obs_rms.mean / self.obs_rms.std)
-            _input = tf.concat([obs, acs_ph], axis=1)  # concatenate the two input -> form a transition
+            # _input = tf.concat([obs, acs_ph], axis=1)  # concatenate the two input -> form a transition
+            _input = obs
             p_h1 = tf.contrib.layers.fully_connected(_input, self.hidden_size, activation_fn=tf.nn.tanh)
             p_h2 = tf.contrib.layers.fully_connected(p_h1, self.hidden_size, activation_fn=tf.nn.tanh)
             logits = tf.contrib.layers.fully_connected(p_h2, 1, activation_fn=tf.identity)
@@ -83,6 +89,7 @@ class TransitionClassifier(object):
             obs = np.expand_dims(obs, 0)
         if len(acs.shape) == 1:
             acs = np.expand_dims(acs, 0)
-        feed_dict = {self.generator_obs_ph: obs, self.generator_acs_ph: acs}
+        # feed_dict = {self.generator_obs_ph: obs, self.generator_acs_ph: acs}
+        feed_dict = {self.generator_obs_ph: obs}
         reward = sess.run(self.reward_op, feed_dict)
         return reward
