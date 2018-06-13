@@ -17,15 +17,16 @@ from baselines import logger
 from baselines.common import set_global_seeds, tf_util as U
 from baselines.common.misc_util import boolean_flag
 from baselines.common.mpi_adam import MpiAdam
-from baselines.gail.run_mujoco import runner
+from baselines.gail.run_mujoco import runner, visualizer
 from baselines.gail.dataset.mujoco_dset import Mujoco_Dset
 
 
 def argsparser():
     parser = argparse.ArgumentParser("Tensorflow Implementation of Behavior Cloning")
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
-    parser.add_argument('--expert_path', type=str, default='/media/jonathan/SSH750/data/SawyerLiftEnv.npz') #this has to be absolute
+    parser.add_argument('--expert_path', type=str, default='data/SawyerLiftEnv_easy.npz') #this has to be absolute
     parser.add_argument('--checkpoint_dir', help='the directory to save model', default='BC_checkpoint')
+    parser.add_argument('--load_model_path', help='path to the saved model', default='BC_checkpoint/.')
     parser.add_argument('--log_dir', help='the directory to save log file', default='BC_log')
     #  Mujoco Dataset Configuration
     parser.add_argument('--traj_limitation', type=int, default=-1)
@@ -101,7 +102,9 @@ def main(args):
     if args.task == 'train':
       env_name, user_name = osp.basename(args.expert_path).split('.')[0].split('_')
     else:
-      env_name, user_name = osp.basename(args.load_model_path).split('.')[:2]
+      uenv, user_name = osp.basename(args.load_model_path).split('.')[:2]
+      env_name = uenv.split('_')[1]
+
     wrapper = '%sWrapper' % env_name
     render = True if args.task=='evaluate' else False
 
@@ -147,9 +150,9 @@ def main(args):
     task_name = get_task_name(env_name, user_name)
     args.checkpoint_dir = osp.join(args.checkpoint_dir, task_name)
     args.log_dir = osp.join(args.log_dir, task_name)
-    dataset = Mujoco_Dset(expert_path=args.expert_path, traj_limitation=args.traj_limitation)
     
     if args.task == 'train':
+      dataset = Mujoco_Dset(expert_path=args.expert_path, traj_limitation=args.traj_limitation)
       savedir_fname = learn(env,
                             policy_fn,
                             dataset,
@@ -160,15 +163,17 @@ def main(args):
                             verbose=True)
 
     elif args.task == 'evaluate':
-      avg_len, avg_ret = runner(env,
-                                policy_fn,
-                                savedir_fname,
-                                timesteps_per_batch=env.env.horizon,
-                                number_trajs=10,
-                                stochastic_policy=args.stochastic_policy,
-                                save=args.save_sample,
-                                reuse=True)
-      print('avg ret: {}, avg len: {}'.format(avg_ret, avg_len))
+      visualizer(env, policy_fn, args.load_model_path, env.env.horizon, 10,
+           args.stochastic_policy, save=args.save_sample)
+      # avg_len, avg_ret = runner(env,
+      #                           policy_fn,
+      #                           savedir_fname,
+      #                           timesteps_per_batch=env.env.horizon,
+      #                           number_trajs=10,
+      #                           stochastic_policy=args.stochastic_policy,
+      #                           save=args.save_sample,
+      #                           reuse=True)
+      # print('avg ret: {}, avg len: {}'.format(avg_ret, avg_len))
 
 
 if __name__ == '__main__':

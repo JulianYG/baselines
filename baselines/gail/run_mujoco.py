@@ -83,7 +83,7 @@ def main(args):
 
     if env_name == 'SawyerLiftEnv':
       env = MM.make(wrapper, 
-                  ignore_done=False, 
+                  ignore_done=True, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -92,7 +92,7 @@ def main(args):
                   )
     elif env_name == 'SawyerBinsEnv':
       env = MM.make(wrapper, 
-                  ignore_done=False, 
+                  ignore_done=True, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -102,7 +102,7 @@ def main(args):
                   )
     elif env_name == 'SawyerPegsEnv':
       env = MM.make(wrapper, 
-                  ignore_done=False, 
+                  ignore_done=True, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -189,7 +189,7 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
                        max_timesteps=num_timesteps,
                        ckpt_dir=checkpoint_dir, log_dir=log_dir,
                        save_per_iter=save_per_iter,
-                       timesteps_per_batch=env.env.horizon, #env.env.horizon * 5,
+                       timesteps_per_batch=env.env.horizon * 5, #env.env.horizon * 5,
                        max_kl=0.01, cg_iters=10, cg_damping=0.1,
                        gamma=0.995, lam=0.97,
                        vf_iters=5, vf_stepsize=1e-3,
