@@ -27,7 +27,7 @@ def argsparser():
     parser.add_argument('--env', help='Name of environment', default='SawyerLiftEnv')
     parser.add_argument('--expert_path', type=str, default='data/deterministic.trpo.Hopper.0.00.npz')
     parser.add_argument('--mix_reward', action='store_true', help='using true env rewards mixed with discriminator reward')
-    parser.add_argument('--rew_lambda', type=float, help='lambda coefficient to mix true rew and discriminator rew', default=0.44)
+    parser.add_argument('--rew_lambda', type=float, help='lambda coefficient to mix true rew and discriminator rew', default=0.5)
     parser.add_argument('--checkpoint_dir', help='the directory to save model', default='checkpoint')
     parser.add_argument('--log_dir', help='the directory to save log file', default='log')
     parser.add_argument('--load_model_path', help='if provided, load the model', type=str, default=None)
