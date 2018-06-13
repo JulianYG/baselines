@@ -82,7 +82,7 @@ def main(args):
 
     if env_name == 'SawyerLiftEnv':
       env = MM.make(wrapper, 
-                  ignore_done=False, 
+                  ignore_done=True, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -91,7 +91,7 @@ def main(args):
                   )
     elif env_name == 'SawyerBinsEnv':
       env = MM.make(wrapper, 
-                  ignore_done=False, 
+                  ignore_done=True, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -101,7 +101,7 @@ def main(args):
                   )
     elif env_name == 'SawyerPegsEnv':
       env = MM.make(wrapper, 
-                  ignore_done=False, 
+                  ignore_done=True, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
