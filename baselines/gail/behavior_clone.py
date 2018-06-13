@@ -23,15 +23,16 @@ from baselines.gail.dataset.mujoco_dset import Mujoco_Dset
 
 def argsparser():
     parser = argparse.ArgumentParser("Tensorflow Implementation of Behavior Cloning")
-    parser.add_argument('--env_id', help='environment ID', default='SawyerLiftEnv')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--expert_path', type=str, default='/media/jonathan/SSH750/data/SawyerLiftEnv.npz') #this has to be absolute
     parser.add_argument('--checkpoint_dir', help='the directory to save model', default='BC_checkpoint')
     parser.add_argument('--log_dir', help='the directory to save log file', default='BC_log')
     #  Mujoco Dataset Configuration
     parser.add_argument('--traj_limitation', type=int, default=-1)
+    parser.add_argument('--task', type=str, choices=['train', 'evaluate', 'sample'], default='train')
+
     # Network Configuration (Using MLP Policy)
-    parser.add_argument('--policy_hidden_size', type=int, default=100)
+    parser.add_argument('--policy_hidden_size', type=int, default=128)
     # for evaluatation
     boolean_flag(parser, 'stochastic_policy', default=False, help='use stochastic/deterministic policy to evaluate')
     boolean_flag(parser, 'save_sample', default=False, help='save the trajectories or not')
@@ -66,6 +67,10 @@ def learn(env, policy_func, dataset, optim_batch_size=128, max_iters=1e4,
     U.initialize()
     adam.sync()
     logger.log("Pretraining with Behavior Cloning...")
+    if ckpt_dir is None:
+        savedir_fname = tempfile.TemporaryDirectory().name
+    else:
+        savedir_fname = osp.join(ckpt_dir, task_name)
     for iter_so_far in tqdm(range(int(max_iters))):
         ob_expert, ac_expert = dataset.get_next_batch(optim_batch_size, 'train')
         train_loss, g = lossandgrad(ob_expert, ac_expert, True)
@@ -79,62 +84,91 @@ def learn(env, policy_func, dataset, optim_batch_size=128, max_iters=1e4,
             ob_expert, ac_expert = dataset.get_next_batch(-1, 'val')
             val_loss, _ = lossandgrad(ob_expert, ac_expert, True)
             logger.log("Training loss: {}, Validation loss: {}".format(train_loss, val_loss))
-
-    if ckpt_dir is None:
-        savedir_fname = tempfile.TemporaryDirectory().name
-    else:
-        savedir_fname = osp.join(ckpt_dir, task_name)
-    U.save_state(savedir_fname)
+        
+        if iter_so_far % 20 == 0:
+            U.save_state(savedir_fname)
     return savedir_fname
 
 
-def get_task_name(args):
-    task_name = 'BC'
-    task_name += '.{}'.format(args.env_id.split("-")[0])
-    task_name += '.traj_limitation_{}'.format(args.traj_limitation)
-    task_name += ".seed_{}".format(args.seed)
-    return task_name
-
+def get_task_name(env_name, user_name):
+    return 'BC_%s.%s' % (env_name, user_name)
 
 def main(args):
     U.make_session(num_cpu=1).__enter__()
     set_global_seeds(args.seed)
 
-    env = MM.make('%sWrapper' % args.env_id,
-                  ignore_done=False,
-                  use_eef_ctrl=False,
-                  gripper_visualization=True,
-                  use_camera_obs=False,
-                  has_renderer=False,
-                  reward_shaping=True)
+    import MujocoManip as MM
+    if args.task == 'train':
+      env_name, user_name = osp.basename(args.expert_path).split('.')[0].split('_')
+    else:
+      env_name, user_name = osp.basename(args.load_model_path).split('.')[:2]
+    wrapper = '%sWrapper' % env_name
+    render = True if args.task=='evaluate' else False
+
+    if env_name == 'SawyerLiftEnv':
+      env = MM.make(wrapper, 
+                  ignore_done=False, 
+                  use_eef_ctrl=False, 
+                  gripper_visualization=True, 
+                  use_camera_obs=False, 
+                  has_renderer=render,
+                  reward_shaping=True,
+                  )
+    elif env_name == 'SawyerBinsEnv':
+      env = MM.make(wrapper, 
+                  ignore_done=False, 
+                  use_eef_ctrl=False, 
+                  gripper_visualization=True, 
+                  use_camera_obs=False, 
+                  has_renderer=render,
+                  reward_shaping=True,
+                  single_object_mode=True if user_name == 'easy' else False
+                  )
+    elif env_name == 'SawyerPegsEnv':
+      env = MM.make(wrapper, 
+                  ignore_done=False, 
+                  use_eef_ctrl=False, 
+                  gripper_visualization=True, 
+                  use_camera_obs=False, 
+                  has_renderer=render,
+                  reward_shaping=True,
+                  single_object_mode=True if user_name == 'easy' else False
+                  )
+    else:
+      raise NotImplementedError
         
     def policy_fn(name, ob_space, ac_space, reuse=False):
         return mlp_policy.MlpPolicy(name=name, ob_space=ob_space, ac_space=ac_space,
-                                    reuse=reuse, hid_size=args.policy_hidden_size, num_hid_layers=2)
+                                    reuse=reuse, hid_size=args.policy_hidden_size, num_hid_layers=3)
     env = bench.Monitor(env, logger.get_dir() and
                         osp.join(logger.get_dir(), "monitor.json"))
     env.seed(args.seed)
     gym.logger.setLevel(logging.WARN)
-    task_name = get_task_name(args)
+    task_name = get_task_name(env_name, user_name)
     args.checkpoint_dir = osp.join(args.checkpoint_dir, task_name)
     args.log_dir = osp.join(args.log_dir, task_name)
     dataset = Mujoco_Dset(expert_path=args.expert_path, traj_limitation=args.traj_limitation)
-    savedir_fname = learn(env,
-                          policy_fn,
-                          dataset,
-                          max_iters=args.BC_max_iter,
-                          ckpt_dir=args.checkpoint_dir,
-                          log_dir=args.log_dir,
-                          task_name=task_name,
-                          verbose=True)
-    avg_len, avg_ret = runner(env,
-                              policy_fn,
-                              savedir_fname,
-                              timesteps_per_batch=1024,
-                              number_trajs=10,
-                              stochastic_policy=args.stochastic_policy,
-                              save=args.save_sample,
-                              reuse=True)
+    
+    if args.task == 'train':
+      savedir_fname = learn(env,
+                            policy_fn,
+                            dataset,
+                            max_iters=args.BC_max_iter,
+                            ckpt_dir=args.checkpoint_dir,
+                            log_dir=args.log_dir,
+                            task_name=task_name,
+                            verbose=True)
+
+    elif args.task == 'evaluate':
+      avg_len, avg_ret = runner(env,
+                                policy_fn,
+                                savedir_fname,
+                                timesteps_per_batch=env.env.horizon,
+                                number_trajs=10,
+                                stochastic_policy=args.stochastic_policy,
+                                save=args.save_sample,
+                                reuse=True)
+      print('avg ret: {}, avg len: {}'.format(avg_ret, avg_len))
 
 
 if __name__ == '__main__':
