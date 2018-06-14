@@ -128,7 +128,7 @@ def main(args):
                         osp.join(logger.get_dir(), "monitor.json"))
     env.seed(args.seed)
     gym.logger.setLevel(logging.WARN)
-    task_name = get_task_name(env_name, user_name)
+    task_name = get_task_name(env_name, user_name) + '_%s_%s' % (args.algo, 1 if not args.mix_reward else args.rew_lambda)
     args.checkpoint_dir = osp.join(args.checkpoint_dir, task_name)
     args.log_dir = osp.join(args.log_dir, task_name)
     os.makedirs(args.log_dir, exist_ok=True)
