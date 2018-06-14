@@ -20,7 +20,7 @@ from baselines.common.cg import cg
 from baselines.gail.statistics import stats
 
 
-def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochastic):
+def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochastic, frame_stack):
 
     # Initialize state variables
     t = 0
@@ -37,8 +37,9 @@ def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochas
     ep_rets = []
     ep_lens = []
 
+    ob_tmp = np.concatenate([ob for _ in range(frame_stack)])
     # Initialize history arrays
-    obs = np.array([ob for _ in range(horizon)])
+    obs = np.array([ob_tmp for _ in range(horizon)])
     true_rews = np.zeros(horizon, 'float32')
     rews = np.zeros(horizon, 'float32')
     vpreds = np.zeros(horizon, 'float32')
@@ -46,9 +47,13 @@ def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochas
     acs = np.array([ac for _ in range(horizon)])
     prevacs = acs.copy()
 
+    #print('obs', obs.shape)
+    frame_buf = obs[0]
+    #print('ob', ob.shape)
+    #print('frame buf', frame_buf.shape)
     while True:
         prevac = ac
-        ac, vpred = pi.act(stochastic, ob)
+        ac, vpred = pi.act(stochastic, frame_buf) #ob)
         # Slight weirdness here because we need value function at time T
         # before returning segment [0, T-1] so we get the correct
         # terminal value
@@ -56,14 +61,20 @@ def traj_segment_generator(pi, env, reward_giver, horizon, mix_rew, lam, stochas
             yield {"ob": obs, "rew": rews, "vpred": vpreds, "new": news,
                    "ac": acs, "prevac": prevacs, "nextvpred": vpred * (1 - new),
                    "ep_rets": ep_rets, "ep_lens": ep_lens, "ep_true_rets": ep_true_rets}
-            _, vpred = pi.act(stochastic, ob)
+            _, vpred = pi.act(stochastic, frame_buf) #ob)
             # Be careful!!! if you change the downstream algorithm to aggregate
             # several of these batches, then be sure to do a deepcopy
             ep_rets = []
             ep_true_rets = []
             ep_lens = []
         i = t % horizon
-        obs[i] = ob
+        #print('obs', obs.shape)
+        #print('ob', ob.shape)
+        #print(frame_buf.shape)
+        frame_buf = np.concatenate([frame_buf[ob.shape[0]:], ob ])
+        #print(frame_buf.shape)
+        #print(obs.shape)
+        obs[i] = frame_buf
         vpreds[i] = vpred
         news[i] = new
         acs[i] = ac
@@ -115,7 +126,7 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
           vf_stepsize=3e-4, d_stepsize=3e-4, vf_iters=3,
           max_timesteps=0, max_episodes=0, max_iters=0,
           mix_reward=False, r_lambda=0.44,
-          callback=None
+          callback=None, frame_stack=1,
           ):
 
     nworkers = MPI.COMM_WORLD.Get_size()
@@ -124,6 +135,8 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
     # Setup losses and stuff
     # ----------------------------------------
     ob_space = env.observation_space
+    ob_space.shape = (ob_space.shape[0] * frame_stack,)
+    print(ob_space)
     ac_space = env.action_space
     pi = policy_func("pi", ob_space, ac_space, reuse=(pretrained_weight != None))
     oldpi = policy_func("oldpi", ob_space, ac_space)
@@ -226,8 +239,8 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
     # Prepare for rollouts
     # ----------------------------------------
     seg_gen = traj_segment_generator(pi, env, reward_giver, timesteps_per_batch, 
-        mix_reward, r_lambda,
-        stochastic=True)
+                                     mix_reward, r_lambda,
+                                     stochastic=True, frame_stack=frame_stack)
 
     episodes_so_far = 0
     timesteps_so_far = 0
@@ -355,6 +368,9 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
                                                       batch_size=batch_size):
             ob_expert, ac_expert = expert_dataset.get_next_batch(len(ob_batch))
             # update running mean/std for reward_giver
+
+            ob_batch = ob_batch[:,-ob_expert.shape[1]:][:-30]
+
             if hasattr(reward_giver, "obs_rms"): reward_giver.obs_rms.update(np.concatenate((ob_batch, ob_expert), 0)[:, :-30])
             # *newlosses, g = reward_giver.lossandgrad(ob_batch, ac_batch, ob_expert, ac_expert)
             *newlosses, g = reward_giver.lossandgrad(ob_batch[:, :-30], ob_expert[:, :-30])
