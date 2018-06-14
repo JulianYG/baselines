@@ -118,7 +118,7 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  has_offscreen_renderer=render
+                  has_offscreen_renderer=False
                   )
     elif env_name == 'SawyerBinsEnv':
       env = MM.make(wrapper, 
@@ -129,7 +129,7 @@ def main(args):
                   has_renderer=render,
                   reward_shaping=True,
                   single_object_mode=True if user_name == 'easy' else False,
-                  has_offscreen_renderer=render
+                  has_offscreen_renderer=False
                   )
     elif env_name == 'SawyerPegsEnv':
       env = MM.make(wrapper, 
@@ -140,7 +140,7 @@ def main(args):
                   has_renderer=render,
                   reward_shaping=True,
                   single_object_mode=True if user_name == 'easy' else False,
-                  has_offscreen_renderer=render
+                  has_offscreen_renderer=False
                   )
     else:
       raise NotImplementedError
