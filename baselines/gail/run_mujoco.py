@@ -202,7 +202,7 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
                        timesteps_per_batch=env.env.horizon * 5,
                        max_kl=0.01, cg_iters=10, cg_damping=0.1,
                        gamma=0.995, lam=0.97,
-                       vf_iters=5, vf_stepsize=1e-3,
+                       vf_iters=5, vf_stepsize=1e-4,
                        mix_reward=mix_reward, r_lambda=rew_lambda,
                        task_name=task_name, frame_stack=frame_stack)
 

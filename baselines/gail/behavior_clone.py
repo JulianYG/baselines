@@ -87,7 +87,9 @@ def learn(env, policy_func, dataset, optim_batch_size=128, max_iters=1e4,
             logger.log("Training loss: {}, Validation loss: {}".format(train_loss, val_loss))
         
         if iter_so_far % 20 == 0:
-            U.save_state(savedir_fname)
+            from tensorflow.core.protobuf import saver_pb2
+            saver = tf.train.Saver(write_version=saver_pb2.SaverDef.V1)
+            saver.save(tf.get_default_session(), savedir_fname)
     return savedir_fname
 
 
