@@ -41,6 +41,10 @@ def argsparser():
     # Optimization Configuration
     parser.add_argument('--g_step', help='number of steps to train policy in each epoch', type=int, default=2)
     parser.add_argument('--d_step', help='number of steps to train discriminator in each epoch', type=int, default=1)
+
+    parser.add_argument('--frame_stack', help='number of frames to stack', type=int, default=1)
+
+    
     # Network Configuration (Using MLP Policy)
     parser.add_argument('--policy_hidden_size', type=int, default=100)
     parser.add_argument('--adversary_hidden_size', type=int, default=100)
@@ -83,7 +87,7 @@ def main(args):
 
     if env_name == 'SawyerLiftEnv':
       env = MM.make(wrapper, 
-                  ignore_done=True, 
+                  ignore_done=False, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -92,7 +96,7 @@ def main(args):
                   )
     elif env_name == 'SawyerBinsEnv':
       env = MM.make(wrapper, 
-                  ignore_done=True, 
+                  ignore_done=False, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -102,7 +106,7 @@ def main(args):
                   )
     elif env_name == 'SawyerPegsEnv':
       env = MM.make(wrapper, 
-                  ignore_done=True, 
+                  ignore_done=False, 
                   use_eef_ctrl=False, 
                   gripper_visualization=True, 
                   use_camera_obs=False, 
@@ -145,7 +149,8 @@ def main(args):
               args.BC_max_iter,
               args.rew_lambda,
               args.mix_reward,
-              task_name
+              task_name,
+              args.frame_stack
               )
     elif args.task == 'evaluate':
         visualizer(env,
@@ -164,7 +169,7 @@ def main(args):
 def train(env, seed, policy_fn, reward_giver, dataset, algo,
           g_step, d_step, policy_entcoeff, num_timesteps, save_per_iter,
           checkpoint_dir, log_dir, pretrained, BC_max_iter, rew_lambda,
-          mix_reward=False, task_name=None):
+          mix_reward=False, task_name=None, frame_stack=1):
 
     pretrained_weight = None
     if pretrained and (BC_max_iter > 0):
@@ -189,12 +194,12 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
                        max_timesteps=num_timesteps,
                        ckpt_dir=checkpoint_dir, log_dir=log_dir,
                        save_per_iter=save_per_iter,
-                       timesteps_per_batch=env.env.horizon * 10,
+                       timesteps_per_batch=env.env.horizon * 5,
                        max_kl=0.01, cg_iters=10, cg_damping=0.1,
                        gamma=0.995, lam=0.97,
                        vf_iters=5, vf_stepsize=1e-3,
                        mix_reward=mix_reward, r_lambda=rew_lambda,
-                       task_name=task_name)
+                       task_name=task_name, frame_stack=frame_stack)
     else:
         raise NotImplementedError
 
