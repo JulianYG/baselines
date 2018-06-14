@@ -368,12 +368,12 @@ def learn(env, policy_func, reward_giver, expert_dataset, rank,
                                                       batch_size=batch_size):
             ob_expert, ac_expert = expert_dataset.get_next_batch(len(ob_batch))
             # update running mean/std for reward_giver
-            print(ob_batch.shape, ac_batch.shape, ob_expert.shape)
-            ob_batch = ob_batch[:,-ob_expert.shape[1]:]
-            
-            if hasattr(reward_giver, "obs_rms"): reward_giver.obs_rms.update(np.concatenate((ob_batch, ob_expert), 0))
+
+            ob_batch = ob_batch[:,-ob_expert.shape[1]:][:-30]
+
+            if hasattr(reward_giver, "obs_rms"): reward_giver.obs_rms.update(np.concatenate((ob_batch, ob_expert), 0)[:, :-30])
             # *newlosses, g = reward_giver.lossandgrad(ob_batch, ac_batch, ob_expert, ac_expert)
-            *newlosses, g = reward_giver.lossandgrad(ob_batch, ob_expert)
+            *newlosses, g = reward_giver.lossandgrad(ob_batch[:, :-30], ob_expert[:, :-30])
             d_adam.update(allmean(g), d_stepsize)
             d_losses.append(newlosses)
         logger.log(fmt_row(13, np.mean(d_losses, axis=0)))

@@ -20,10 +20,10 @@ def logit_bernoulli_entropy(logits):
 class TransitionClassifier(object):
     def __init__(self, env, hidden_size, entcoeff=0.001, lr_rate=1e-3, scope="adversary"):
         self.scope = scope
-        self.observation_shape = env.observation_space.shape
+        self.observation_shape = (env.observation_space.shape[0] - 30,) # dirty hack, mask off proprioceptive info
         self.actions_shape = env.action_space.shape
         # self.input_shape = tuple([o+a for o, a in zip(self.observation_shape, self.actions_shape)])
-        self.input_shape = self.observation_shape
+        self.input_shape = (self.observation_shape[0] - 30,) # dirty hack, mask off proprioceptive info
         self.num_actions = env.action_space.shape[0]
         self.hidden_size = hidden_size
         self.build_ph()
@@ -90,6 +90,7 @@ class TransitionClassifier(object):
         if len(acs.shape) == 1:
             acs = np.expand_dims(acs, 0)
         # feed_dict = {self.generator_obs_ph: obs, self.generator_acs_ph: acs}
-        feed_dict = {self.generator_obs_ph: obs}
+        feed_dict = {self.generator_obs_ph: obs[:, :-30]} # dirty hack to mask off proprioception
         reward = sess.run(self.reward_op, feed_dict)
         return reward
+
