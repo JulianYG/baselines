@@ -31,6 +31,7 @@ def argsparser():
     parser.add_argument('--checkpoint_dir', help='the directory to save model', default='checkpoint')
     parser.add_argument('--log_dir', help='the directory to save log file', default='log')
     parser.add_argument('--load_model_path', help='if provided, load the model', type=str, default=None)
+
     # Task
     parser.add_argument('--task', type=str, choices=['train', 'evaluate', 'sample'], default='train')
     # for evaluatation
@@ -176,15 +177,16 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
         pretrained_weight = behavior_clone.learn(env, policy_fn, dataset,
                                                  max_iters=BC_max_iter)
 
+    # Set up for MPI seed
+    rank = MPI.COMM_WORLD.Get_rank()
+    if rank != 0:
+        logger.set_level(logger.DISABLED)
+    workerseed = seed + 10000 * MPI.COMM_WORLD.Get_rank()
+    set_global_seeds(workerseed)
+    env.seed(workerseed)
+
     if algo == 'trpo':
         from baselines.gail import trpo_mpi
-        # Set up for MPI seed
-        rank = MPI.COMM_WORLD.Get_rank()
-        if rank != 0:
-            logger.set_level(logger.DISABLED)
-        workerseed = seed + 10000 * MPI.COMM_WORLD.Get_rank()
-        set_global_seeds(workerseed)
-        env.seed(workerseed)
         trpo_mpi.learn(env, policy_fn, reward_giver, dataset, rank,
                        pretrained=pretrained, pretrained_weight=pretrained_weight,
                        g_step=g_step, d_step=d_step,
@@ -196,6 +198,21 @@ def train(env, seed, policy_fn, reward_giver, dataset, algo,
                        max_kl=0.01, cg_iters=10, cg_damping=0.1,
                        gamma=0.995, lam=0.97,
                        vf_iters=5, vf_stepsize=1e-3,
+                       mix_reward=mix_reward, r_lambda=rew_lambda,
+                       task_name=task_name)
+
+    elif algo == 'ppo':
+        from baselines.gail import ppo_mpi
+        ppo_mpi.learn(env, policy_fn, reward_giver, dataset, rank,
+                       pretrained=pretrained, pretrained_weight=pretrained_weight,
+                       g_step=g_step, d_step=d_step,
+                       entcoeff=policy_entcoeff,
+                       max_timesteps=num_timesteps,
+                       ckpt_dir=checkpoint_dir, log_dir=log_dir,
+                       save_per_iter=save_per_iter,
+                       timesteps_per_batch=env.env.horizon, #env.env.horizon * 5,
+                       gamma=0.995, lam=0.97, clip_param=0.2, 
+                       optim_epochs=50, optim_stepsize=1e-4, optim_batchsize=100, # optimization hypers
                        mix_reward=mix_reward, r_lambda=rew_lambda,
                        task_name=task_name)
     else:
