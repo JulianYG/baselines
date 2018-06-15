@@ -110,6 +110,10 @@ def main(args):
     wrapper = '%sWrapper' % env_name
     render = True if args.task=='evaluate' else False
     print('%s initialized.' % wrapper)
+
+    bin_dict = dict(milk=0, bread=1, cereal=2, can=3)
+    peg_dict = dict(square=0, round=1)
+
     if env_name == 'SawyerLiftEnv':
       env = MM.make(wrapper, 
                   ignore_done=False, 
@@ -128,8 +132,9 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  single_object_mode=True if user_name == 'easy' else False,
-                  has_offscreen_renderer=False
+                  single_object_mode=False if user_name == 'hard' else True,
+                  has_offscreen_renderer=False, 
+                  selected_bin=None if user_name == 'hard' else bin_dict[user_name.lower()]
                   )
     elif env_name == 'SawyerPegsEnv':
       env = MM.make(wrapper, 
@@ -139,8 +144,9 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  single_object_mode=True if user_name == 'easy' else False,
-                  has_offscreen_renderer=False
+                  single_object_mode=False if user_name == 'hard' else True,
+                  has_offscreen_renderer=False,
+                  selected_bin=None if user_name == 'hard' else peg_dict[user_name.lower()]
                   )
     else:
       raise NotImplementedError
