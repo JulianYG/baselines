@@ -104,7 +104,7 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  single_object_mode=False if user_name.lower() == 'hard' else True,
+                  single_object_mode=False if 'hard' in user_name.lower() else True,
                   has_offscreen_renderer=render
                   )
     elif env_name == 'SawyerPegsEnv':
@@ -115,7 +115,7 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  single_object_mode=False if user_name.lower() == 'hard' else True,
+                  single_object_mode=False if 'hard' in user_name.lower() else True,
                   has_offscreen_renderer=render
                   )
     else:
