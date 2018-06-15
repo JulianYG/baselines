@@ -132,9 +132,9 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  single_object_mode=False if user_name == 'hard' else True,
+                  single_object_mode=False if user_name.lower() == 'hard' else True,
                   has_offscreen_renderer=False, 
-                  selected_bin=None if user_name == 'hard' else bin_dict[user_name.lower()]
+                  selected_bin=None if user_name.lower() == 'hard' else bin_dict[user_name.lower()]
                   )
     elif env_name == 'SawyerPegsEnv':
       env = MM.make(wrapper, 
@@ -144,9 +144,9 @@ def main(args):
                   use_camera_obs=False, 
                   has_renderer=render,
                   reward_shaping=True,
-                  single_object_mode=False if user_name == 'hard' else True,
+                  single_object_mode=False if user_name.lower() == 'hard' else True,
                   has_offscreen_renderer=False,
-                  selected_bin=None if user_name == 'hard' else peg_dict[user_name.lower()]
+                  selected_bin=None if user_name.lower() == 'hard' else peg_dict[user_name.lower()]
                   )
     else:
       raise NotImplementedError
